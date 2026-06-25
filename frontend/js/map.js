@@ -193,17 +193,36 @@ async function updateLocation() {
         return;
     }
 
+    const postData = {
+        parcelId: currentParcelId,
+        driverId: currentDriverId,
+        location
+    };
+
+    // Geocode on frontend to bypass Render server IP block
+    try {
+        const encoded = encodeURIComponent(location);
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encoded}`, {
+            headers: { 'User-Agent': 'LogiTrack/1.0 (learning-project)' }
+        });
+        if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            if (geoData && geoData.length > 0) {
+                postData.latitude = parseFloat(geoData[0].lat);
+                postData.longitude = parseFloat(geoData[0].lon);
+            }
+        }
+    } catch (e) {
+        console.warn('Frontend geocoding failed, falling back to backend:', e);
+    }
+
     try {
         const response = await fetch(`${API_BASE_URL}/parcels/update-location`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                parcelId: currentParcelId,
-                driverId: currentDriverId,
-                location
-            })
+            body: JSON.stringify(postData)
         });
 
         const result = await response.json();
