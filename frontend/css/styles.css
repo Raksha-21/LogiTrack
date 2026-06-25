@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
-/* Modern UI theme for Parcel Delivery System */
+/* Modern UI theme for LogiTrack */
 :root {
     --app-bg: #F8FAFC;
     --app-text: #0F172A;
@@ -236,6 +236,11 @@ body {
     font-size: 0.78em;
     padding: 0.4em 0.6em;
     border-radius: 999px;
+}
+
+.status-requested {
+    background-color: #8B5CF6;
+    color: #fff;
 }
 
 .status-pending {

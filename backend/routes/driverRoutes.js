@@ -14,7 +14,7 @@ async function geocodeLocation(locationName) {
 
   const response = await fetch(geocodeUrl, {
     headers: {
-      'User-Agent': 'ParcelDeliverySystem/1.0 (learning-project)'
+      'User-Agent': 'LogiTrack/1.0 (learning-project)'
     }
   });
 

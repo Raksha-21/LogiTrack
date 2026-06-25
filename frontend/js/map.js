@@ -128,14 +128,22 @@ async function trackParcel() {
             let initialLat = null;
             let initialLng = null;
             if (parcel.driverId) {
-                const driversResponse = await fetch(`${API_BASE_URL}/drivers`);
-                const drivers = await driversResponse.json();
-                const assignedDriver = drivers.find(d => d.driverId === parcel.driverId);
-                const driverLat = assignedDriver ? Number(assignedDriver.latitude) : NaN;
-                const driverLng = assignedDriver ? Number(assignedDriver.longitude) : NaN;
-                if (hasValidCoordinates(driverLat, driverLng)) {
-                    initialLat = driverLat;
-                    initialLng = driverLng;
+                try {
+                    const driversResponse = await fetch(`${API_BASE_URL}/drivers`);
+                    if (driversResponse.ok) {
+                        const drivers = await driversResponse.json();
+                        if (Array.isArray(drivers)) {
+                            const assignedDriver = drivers.find(d => d.driverId === parcel.driverId);
+                            const driverLat = assignedDriver ? Number(assignedDriver.latitude) : NaN;
+                            const driverLng = assignedDriver ? Number(assignedDriver.longitude) : NaN;
+                            if (hasValidCoordinates(driverLat, driverLng)) {
+                                initialLat = driverLat;
+                                initialLng = driverLng;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Could not fetch driver coordinates:', err);
                 }
             }
 

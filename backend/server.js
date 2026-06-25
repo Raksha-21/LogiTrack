@@ -67,7 +67,7 @@ io.on('connection', (socket) => {
 
 // Basic route
 app.get('/', (req, res) => {
-  res.send('Parcel Delivery and Tracking System API');
+  res.send('LogiTrack API');
 });
 
 // Start server

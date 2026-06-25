@@ -3,7 +3,7 @@ const Parcel = require('./models/Parcel');
 const Driver = require('./models/Driver');
 require('dotenv').config();
 
-// Example MongoDB queries for the Parcel Delivery System
+// Example MongoDB queries for LogiTrack
 
 async function runQueries() {
   try {

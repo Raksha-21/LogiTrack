@@ -11,7 +11,7 @@ async function geocodeLocation(locationName) {
 
   const response = await fetch(geocodeUrl, {
     headers: {
-      'User-Agent': 'ParcelDeliverySystem/1.0 (learning-project)'
+      'User-Agent': 'LogiTrack/1.0 (learning-project)'
     }
   });
 
@@ -63,6 +63,47 @@ router.post('/add', protect, restrictTo('admin'), async (req, res) => {
     } else {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
+  }
+});
+
+// Book a new parcel (Customer pickup/delivery request)
+router.post('/book', protect, restrictTo('customer'), async (req, res) => {
+  try {
+    const { receiverName, pickupAddress, deliveryAddress, weight } = req.body;
+
+    // Validate required fields
+    if (!receiverName || !pickupAddress || !deliveryAddress || !weight) {
+      return res.status(400).json({ message: 'Receiver name, weight, pickup address, and delivery address are required' });
+    }
+
+    // Auto-generate a unique parcel ID
+    let isUnique = false;
+    let parcelId;
+    while (!isUnique) {
+      const randomNum = Math.floor(100000 + Math.random() * 900000);
+      parcelId = `LP-${randomNum}`;
+      const exists = await Parcel.exists({ parcelId });
+      if (!exists) {
+        isUnique = true;
+      }
+    }
+
+    // Create new parcel with 'Requested' status
+    const newParcel = new Parcel({
+      parcelId,
+      senderName: req.user.name, // Securely lock to current customer's name
+      receiverName,
+      pickupAddress,
+      deliveryAddress,
+      weight,
+      status: 'Requested'
+    });
+
+    await newParcel.save();
+    res.status(201).json({ message: 'Shipment booking requested successfully', parcel: newParcel });
+  } catch (error) {
+    console.error('Error booking parcel:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -126,16 +167,24 @@ router.put('/assign-driver/:parcelId', protect, restrictTo('admin'), async (req,
       return res.status(404).json({ message: 'Driver not found' });
     }
 
+    // Fetch the parcel to check status
+    const parcel = await Parcel.findOne({ parcelId });
+    if (!parcel) {
+      return res.status(404).json({ message: 'Parcel not found' });
+    }
+
+    // If parcel is requested, change its status to Pending as part of assignment/approval
+    const updateFields = { driverId };
+    if (parcel.status === 'Requested') {
+      updateFields.status = 'Pending';
+    }
+
     // Update parcel
     const updatedParcel = await Parcel.findOneAndUpdate(
       { parcelId },
-      { driverId },
+      updateFields,
       { new: true }
     );
-
-    if (!updatedParcel) {
-      return res.status(404).json({ message: 'Parcel not found' });
-    }
 
     // Auto-create an initial tracking point so new assignments don't start with empty map history.
     // Skip this if tracking already exists for the parcel.
@@ -173,7 +222,7 @@ router.put('/update-status/:parcelId', protect, restrictTo('admin', 'driver'), a
     const { status } = req.body;
 
     // Validate status
-    const validStatuses = ['Pending', 'In Transit', 'Delivered', 'Cancelled'];
+    const validStatuses = ['Requested', 'Pending', 'In Transit', 'Delivered', 'Cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }

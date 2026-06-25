@@ -1,5 +1,5 @@
 // API base URL - change this to your backend URL when deployed
-const API_BASE_URL = 'https://parcel-backend-enlb.onrender.com/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 // Global variables
 let socket;
@@ -11,7 +11,7 @@ let map;
 
 // Initialize Socket.io connection
 function initSocket() {
-    socket = io('https://parcel-backend-enlb.onrender.com');
+    socket = io('http://localhost:5000');
 
     socket.on('connect', function() {
         console.log('Connected to server');
@@ -111,39 +111,91 @@ async function addParcel() {
     }
 }
 
-// Load parcels for parcel list page
-async function loadParcels() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/parcels`);
-        const parcels = await response.json();
+// Global variable to hold loaded parcels for filtering
+let currentLoadedParcels = [];
+let activeParcelTab = 'active';
 
-        const tableBody = document.getElementById('parcelsTableBody');
-        tableBody.innerHTML = parcels.map(parcel => `
+function switchParcelTab(tabName) {
+    activeParcelTab = tabName;
+    renderParcelsTable();
+}
+
+function renderParcelsTable() {
+    const tableBody = document.getElementById('parcelsTableBody');
+    if (!tableBody) return;
+
+    let filteredParcels = [];
+    if (activeParcelTab === 'active') {
+        filteredParcels = currentLoadedParcels.filter(p => p.status !== 'Requested');
+    } else {
+        filteredParcels = currentLoadedParcels.filter(p => p.status === 'Requested');
+    }
+
+    if (filteredParcels.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted p-4">No parcels found in this section.</td></tr>`;
+        return;
+    }
+
+    tableBody.innerHTML = filteredParcels.map(parcel => {
+        const isRequested = parcel.status === 'Requested';
+        
+        // Setup custom button based on request status
+        const actionButtons = isRequested ? `
+            <button class="btn btn-sm btn-success d-flex align-items-center gap-1 shadow-sm px-3" onclick="openAssignDriverModal('${parcel.parcelId}')" style="background-color: #10B981; border-color: #10B981;">
+                ✅ Approve & Assign
+            </button>
+        ` : `
+            <div class="btn-group shadow-sm" role="group">
+                <button class="btn btn-sm btn-primary d-flex align-items-center gap-1" onclick="openAssignDriverModal('${parcel.parcelId}')">
+                    👤 Assign Driver
+                </button>
+                <button class="btn btn-sm btn-info text-white d-flex align-items-center gap-1" onclick="openUpdateStatusModal('${parcel.parcelId}')" style="background-color: #0EA5E9; border-color: #0EA5E9;">
+                    🔄 Update Status
+                </button>
+            </div>
+        `;
+
+        return `
             <tr>
-                <td>${parcel.parcelId}</td>
+                <td><strong>${parcel.parcelId}</strong></td>
                 <td>${parcel.senderName}</td>
                 <td>${parcel.receiverName}</td>
                 <td>${parcel.pickupAddress}</td>
                 <td>${parcel.deliveryAddress}</td>
                 <td>${parcel.weight}</td>
                 <td><span class="badge status-${parcel.status.toLowerCase().replace(' ', '-')}">${parcel.status}</span></td>
-                <td>${parcel.driverId || 'Not assigned'}</td>
-                <td>
-                    <div class="btn-group shadow-sm" role="group">
-                        <button class="btn btn-sm btn-primary d-flex align-items-center gap-1" onclick="openAssignDriverModal('${parcel.parcelId}')">
-                            <span style="font-size: 1.1em;">👤</span> Assign Driver
-                        </button>
-                        <button class="btn btn-sm btn-info text-white d-flex align-items-center gap-1" onclick="openUpdateStatusModal('${parcel.parcelId}')" style="background-color: #0EA5E9; border-color: #0EA5E9;">
-                            <span style="font-size: 1.1em;">🔄</span> Update Status
-                        </button>
-                    </div>
-                </td>
+                <td>${parcel.driverId || '<em>Not assigned</em>'}</td>
+                <td>${actionButtons}</td>
             </tr>
-        `).join('');
+        `;
+    }).join('');
+}
 
+// Load parcels for parcel list page
+async function loadParcels() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/parcels`);
+        currentLoadedParcels = await response.json();
+
+        // Update the requests count badge on the navigation tab
+        const requests = currentLoadedParcels.filter(p => p.status === 'Requested');
+        const badge = document.getElementById('requestBadge');
+        if (badge) {
+            if (requests.length > 0) {
+                badge.textContent = requests.length;
+                badge.classList.remove('d-none');
+            } else {
+                badge.classList.add('d-none');
+            }
+        }
+
+        renderParcelsTable();
     } catch (error) {
         console.error('Error loading parcels:', error);
-        document.getElementById('parcelsTableBody').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Error loading parcels</td></tr>';
+        const tableBody = document.getElementById('parcelsTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Error loading parcels</td></tr>';
+        }
     }
 }
 
